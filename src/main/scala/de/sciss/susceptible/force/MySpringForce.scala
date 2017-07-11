@@ -15,18 +15,19 @@ package de.sciss.susceptible.force
 
 import java.util.Random
 
-import prefuse.util.force.{Spring, SpringForce}
+import prefuse.util.force.{ForceItem, Spring, SpringForce}
 
 object MySpringForce {
   private final val pi    = math.Pi.toFloat
   private final val piH   = (math.Pi/2).toFloat
   private final val eps   = (0.01 * math.Pi/180).toFloat
+
+  final val POW: Int = SpringForce.SPRING_LENGTH + 1
 }
 class MySpringForce extends SpringForce {
   import MySpringForce._
 
-  private val HTORQUE       = params.length
-  private val VTORQUE       = HTORQUE + 1
+  private val VTORQUE       = POW + 1
   private val DISTANCE      = VTORQUE + 1
   private val VSPRING_COEFF = DISTANCE + 1
   private val VSPRING_LENGTH = VSPRING_COEFF + 1
@@ -35,13 +36,13 @@ class MySpringForce extends SpringForce {
 
   def setSeed(n: Long): Unit = rand.setSeed(n)
 
-  //                                    htorque vtorque distance vspring   vlength
-  params    = params    ++ Array[Float](5e-5f , 5e-5f , -1f    , 8.0e-5f,  100f)
-  minValues = minValues ++ Array[Float](0f    , 0f    , -1f    , 0f     ,    1f)
-  maxValues = maxValues ++ Array[Float](5e-3f , 5e-3f , 500f   , 8.0e-3f, 1000f)
+  //                                    pow      vtorque distance vspring   vlength
+  params    = params    ++ Array[Float]( 1.0f    , 5e-5f , -1f    , 8.0e-5f,  100f)
+  minValues = minValues ++ Array[Float]( 0.1f    , 0f    , -1f    , 0f     ,    1f)
+  maxValues = maxValues ++ Array[Float](10.0f    , 5e-5f , 500f   , 8.0e-3f, 1000f)
 
   override def getParameterNames: Array[String] =
-    super.getParameterNames ++ Array("HTorque", "VTorque", "Limit", "VSpring", "VLength")
+    super.getParameterNames ++ Array("Pow", "VTorque", "Limit", "VSpring", "VLength")
 
   // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
   private def angleBetween(a: Float, b: Float): Float = {
@@ -49,7 +50,37 @@ class MySpringForce extends SpringForce {
     math.atan2(math.sin(d), math.cos(d)).toFloat
   }
 
-  override def getForce(s: Spring): Unit = {
+//  override def getForce(s: Spring): Unit = {
+//    val item1 = s.item1
+//    val item2 = s.item2
+//    val length = if (s.length < 0) {
+//      params(SPRING_LENGTH)
+//    }
+//    else {
+//      s.length
+//    }
+//    val x1 = item1.location(0)
+//    val y1 = item1.location(1)
+//    val x2 = item2.location(0)
+//    val y2 = item2.location(1)
+//    var dx = x2 - x1
+//    var dy = y2 - y1
+//    var r = Math.sqrt(dx * dx + dy * dy).toFloat
+//    if (r == 0.0) {
+//      dx = (Math.random.toFloat - 0.5f) / 50.0f
+//      dy = (Math.random.toFloat - 0.5f) / 50.0f
+//      r = Math.sqrt(dx * dx + dy * dy).toFloat
+//    }
+//    val d = r - length
+//    val coeff = (if (s.coeff < 0) params(SPRING_COEFF)
+//    else s.coeff) * d / r
+//    item1.force(0) += coeff * dx
+//    item1.force(1) += coeff * dy
+//    item2.force(0) += -coeff * dx
+//    item2.force(1) += -coeff * dy
+//  }
+//
+  private def foo(s: Spring): Unit = {
     val isHorizontal = s.coeff == 0f || s.coeff == 1f
 
     val item1   = s.item1
@@ -82,7 +113,7 @@ class MySpringForce extends SpringForce {
     item2.force(1) += -amt * dy
 
     val torqueAngle = if (isHorizontal) 0f else piH
-    val torque      = if (isHorizontal) params(HTORQUE) else params(VTORQUE)
+    val torque      = if (isHorizontal) params(POW) else params(VTORQUE)
 
     val ang = math.atan2(dy, dx).toFloat
     val da = angleBetween(ang, torqueAngle)

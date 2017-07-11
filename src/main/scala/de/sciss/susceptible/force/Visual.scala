@@ -110,7 +110,8 @@ object Visual {
     private[this] val _nBody      = new NBodyForce
     private[this] val _spring     = new MySpringForce
 
-    private[this] var _lineWidth  = 320
+    private[this] var _lineWidth    = 320
+    private[this] var _textOutline  = 0
 
     def autoZoom: Boolean = _autoZoom
     def autoZoom_=(value: Boolean): Unit = if (_autoZoom != value) {
@@ -146,6 +147,11 @@ object Visual {
     def lineWidth_=(value: Int): Unit = if (_lineWidth != value) {
       _lineWidth = value
       setText1(_text)
+    }
+
+    def textOutline: Int = _textOutline
+    def textOutline_=(value: Int): Unit = if (_textOutline != value) {
+      _textOutline = value
     }
 
     private def setText1(value: WordEdges) =
@@ -247,7 +253,7 @@ object Visual {
       // rf.add(new InGroupPredicate(AGGR_PROC  ), aggrRenderer)
       _vis.setRendererFactory(rf)
 
-      _lay = new MyForceDirectedLayout(this)
+      _lay = new MyForceDirectedLayout(this, _spring)
 
       val sim = new ForceSimulator
       sim.addForce(_nBody)
@@ -306,14 +312,14 @@ object Visual {
 //      )
 
       val forceMap = Map(
-        ("NBodyForce" , "GravitationalConstant") -> -0.01f,
-        ("NBodyForce" , "Distance"             ) -> -1.0f,
+        ("NBodyForce" , "GravitationalConstant") -> -0.5f,
+        ("NBodyForce" , "Distance"             ) -> 200f, // 100.0f,
         ("NBodyForce" , "BarnesHutTheta"       ) -> 0.4f,
-        ("DragForce"  , "DragCoefficient"      ) -> 0.015f,
+        ("DragForce"  , "DragCoefficient"      ) -> 0.01f, // 0.04f, // 0.015f,
         ("MySpringForce", "SpringCoefficient"  ) -> 1.0e-4f,
         ("MySpringForce", "VSpringCoefficient" ) -> 1.0e-4f,
-        // ("MySpringForce", "DefaultSpringLength") -> 0.1f, // 150.0f,
-        ("MySpringForce", "HTorque"            ) -> 0f,
+        ("MySpringForce", "DefaultSpringLength") -> 200.0f,
+        ("MySpringForce", "Pow"                ) -> 4f,
         ("MySpringForce", "VTorque"            ) -> 0f,
         ("MySpringForce", "Limit"              ) -> 300.0f
       )
@@ -525,6 +531,8 @@ trait Visual {
   def layoutCounter: Int
 
   var autoZoom: Boolean
+
+  var textOutline: Int
 
   var lineWidth : Int
 

@@ -13,11 +13,8 @@
 
 package de.sciss.susceptible.force
 
-import java.awt.{Graphics2D, Shape}
-
 import prefuse.Constants
 import prefuse.render.EdgeRenderer
-import prefuse.visual.VisualItem
 
 class MyEdgeRenderer
   extends EdgeRenderer(Constants.EDGE_TYPE_LINE, Constants.EDGE_ARROW_NONE) {

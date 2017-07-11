@@ -15,19 +15,21 @@ package de.sciss.susceptible
 
 import java.awt.Font
 import java.io.FileInputStream
+import javax.swing.SpinnerNumberModel
 
 import de.sciss.file._
 import de.sciss.kollflitz.Vec
 import de.sciss.susceptible.force.Visual
+import de.sciss.swingplus.Spinner
 import org.pegdown.{PegDownProcessor, ast}
 import prefuse.util.ui.JForcePanel
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.collection.mutable
+import scala.collection.{breakOut, mutable}
 import scala.swing.Swing._
-import scala.swing.event.ButtonClicked
-import scala.swing.{BorderPanel, BoxPanel, Component, FlowPanel, Frame, Orientation, Swing, ToggleButton}
+import scala.swing.event.{ButtonClicked, ValueChanged}
+import scala.swing.{BorderPanel, BoxPanel, Component, FlowPanel, Frame, Label, Orientation, Swing, ToggleButton}
 
 object Susceptible {
   /**
@@ -145,50 +147,49 @@ object Susceptible {
 
     val section1 = sectionsP.head
 
-    val par1 = section1.head
-
     val fnt = new Font(config.fontName, Font.PLAIN, config.fontSize)
     val gs  = new GlyphSimilarity(fnt)
 
-    val cmpIt: Iterator[(Double, String, String)] =
-      par1.combinations(2).map { case Seq(word1, word2) =>
-        val Seq(word1A, word2A) = EditTranscript.align(Vec(word1, word2), fill = ' ')
-        val sim = gs.compare(word1A, word2A)
-        (sim, word1, word2)
+    val edges: Visual.WordEdges = section1.flatMap { par =>
+      val cmpIt: Iterator[(Double, String, String)] =
+        par.combinations(2).map { case Seq(word1, word2) =>
+          val Seq(word1A, word2A) = EditTranscript.align(Vec(word1, word2), fill = ' ')
+          val sim = gs.compare(word1A, word2A)
+          (sim, word1, word2)
+        }
+
+      val cmp = cmpIt.toList
+      val edges = cmp.map { case (sim, word1, word2) =>
+        Edge(start = word1, end = word2, weight = 1.0 - sim)
       }
 
-    val cmp = cmpIt.toList
+      val mst: List[Edge[String]] = MSTKruskal[String, Edge[String]](edges)
+      fixWords(mst)
+    } (breakOut)
+
     gs.dispose()
 
-//    cmp.sortBy(_._1).foreach { case (sim, word1, word2) =>
-//      println(f"$sim%g: $word1, $word2")
-//    }
-
-    val edges = cmp.map { case (sim, word1, word2) =>
-      Edge(start = word1, end = word2, weight = 1.0 - sim)
-    }
-
-    val mst: List[Edge[String]] = MSTKruskal[String, Edge[String]](edges)
-//    mst.foreach(println)
-
     Swing.onEDT {
-      mkFrame(mst)
+      mkFrame(edges)
     }
   }
 
-  def mkFrame(edges: List[Edge[String]]): Unit = {
-    val v = Visual()
-    // v.display.setDoubleBuffered(true)
-    v.displaySize = (640, 640)
-
+  def fixWords(edges: List[Edge[String]]): Visual.WordEdges = {
     val wordMap = mutable.Map.empty[String, Visual.Word]
     val edgesW = edges.map { edge =>
       val w1 = wordMap.getOrElseUpdate(edge.start, Visual.Word(edge.start))
       val w2 = wordMap.getOrElseUpdate(edge.end  , Visual.Word(edge.end  ))
       Edge(start = w1, end = w2, weight = edge.weight)
     }
+    edgesW
+  }
 
-    v.text = edgesW
+  def mkFrame(edges: Visual.WordEdges): Unit = {
+    val v = Visual()
+    // v.display.setDoubleBuffered(true)
+    v.displaySize = (800, 800)
+
+    v.text = edges
 
     lazy val ggAutoZoom: ToggleButton = new ToggleButton("Zoom") {
       selected = true
@@ -200,6 +201,7 @@ object Susceptible {
     }
 
     lazy val ggRunAnim: ToggleButton = new ToggleButton("Anim") {
+      selected = true
       listenTo(this)
       reactions += {
         case ButtonClicked(_) =>
@@ -207,8 +209,17 @@ object Susceptible {
       }
     }
 
+    val mOutline = new SpinnerNumberModel(0, 0, 10, 1)
+    lazy val ggOutline: Spinner = new Spinner(mOutline) {
+      listenTo(this)
+      reactions += {
+        case ValueChanged(_) =>
+          v.textOutline = mOutline.getNumber.intValue()
+      }
+    }
+
     lazy val pBottom: Component = new BoxPanel(Orientation.Vertical) {
-      contents += new FlowPanel(ggAutoZoom, ggRunAnim)
+      contents += new FlowPanel(ggAutoZoom, ggRunAnim, new Label("Outline:"), ggOutline)
     }
     lazy val pRight: BoxPanel = new BoxPanel(Orientation.Vertical) {
       contents += VStrut(16)  // will be replaced
@@ -227,9 +238,7 @@ object Susceptible {
     mkForcePanel()
 
     val split = new BorderPanel {
-      add(v.component, BorderPanel.Position.North )
-//      add(pSnapshots , BorderPanel.Position.Center)
-      // add(Swing.VGlue, BorderPanel.Position.Center)
+      add(v.component, BorderPanel.Position.Center )
       add(pBottom    , BorderPanel.Position.South )
     }
 
@@ -265,6 +274,7 @@ object Susceptible {
       }
     }
 
-    v.display.panAbs(320, 320)
+    v.display.panAbs(400, 400)
+    v.runAnimation = true
   }
 }

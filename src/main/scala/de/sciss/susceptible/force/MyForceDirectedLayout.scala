@@ -14,16 +14,21 @@
 package de.sciss.susceptible.force
 
 import prefuse.action.layout.graph.ForceDirectedLayout
+import prefuse.util.force.SpringForce
 import prefuse.visual.EdgeItem
 
-class MyForceDirectedLayout(main: Visual)
+class MyForceDirectedLayout(main: Visual, spring: MySpringForce)
   extends ForceDirectedLayout(Visual.GROUP_GRAPH) {
 
   override def getSpringLength(e: EdgeItem): Float = {
 //    val nSrc = e.getSourceItem
 //    val nDst = e.getTargetItem
 
-    -1f
+    val f = e.getDouble(Visual.COL_WEIGHT).toFloat
+//    println(f)
+    val scale = spring.getParameter(SpringForce   .SPRING_LENGTH)
+    val pow   = spring.getParameter(MySpringForce .POW)
+    math.pow(f, pow).toFloat * scale
 
 //    (nSrc.get(Visual.COL_MUTA), nDst.get(Visual.COL_MUTA)) match {
 //      case (vSrc: VisualVertex, vDst: VisualVertex) =>
@@ -40,7 +45,10 @@ class MyForceDirectedLayout(main: Visual)
 
   // this is used to mark horizontal springs (using coefficient zero)
   override def getSpringCoefficient(e: EdgeItem): Float = {
-    -1f
+    val f = e.getDouble(Visual.COL_WEIGHT).toFloat
+    val scale = spring.getParameter(SpringForce   .SPRING_COEFF)
+    f * scale
+
 //    val nSrc = e.getSourceItem
 //    val nDst = e.getTargetItem
 //

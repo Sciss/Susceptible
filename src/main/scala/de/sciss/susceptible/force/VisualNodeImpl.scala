@@ -138,9 +138,11 @@ trait VisualNodeImpl extends VisualNode /* with VisualDataImpl */ {
     g.setTransform(atOrig)
   }
 
-  private[this] var lastFontT: AffineTransform = _
-  private[this] var lastLabel: String = _
-  private[this] var labelShape: Shape = _
+  private[this] var lastFontT  : AffineTransform = _
+  private[this] var lastLabel  : String = _
+  private[this] var lastTextOutline: Int = _
+  private[this] var labelShape : Shape = _
+  private[this] var labelShapeO: Shape = _
 
   //    protected def drawName(g: Graphics2D, vi: VisualItem, fontSize: Float): Unit =
   //      drawLabel(g, vi, fontSize, name)
@@ -157,12 +159,11 @@ trait VisualNodeImpl extends VisualNode /* with VisualDataImpl */ {
   protected def drawLabel(g: Graphics2D, vi: VisualItem, text: String): Unit = {
     checkFont()
 
-    g.setColor(ColorLib.getColor(vi.getTextColor))
-
     if (main.display.isHighQuality) {
       val frc   = g.getFontRenderContext
       val frcT  = frc.getTransform
-      if (frcT != lastFontT || text != lastLabel) {  // only calculate glyph vector if zoom level changes
+      if (frcT != lastFontT || text != lastLabel || main.textOutline != lastTextOutline) {  // only calculate glyph vector if zoom level changes
+        val txtOL = main.textOutline
         val v = _font.createGlyphVector(frc, text)
         // NOTE: there is a bug, at least with the BellySansCondensed font,
         // regarding `getVisualBounds`; it returns almost infinite width
@@ -191,12 +192,23 @@ trait VisualNodeImpl extends VisualNode /* with VisualDataImpl */ {
         val y = 12
 
         labelShape = v.getOutline(x, y)
+        labelShapeO = if (txtOL <= 0) labelShape else {
+          val strk = new BasicStroke(txtOL.toFloat)
+          strk.createStrokedShape(labelShape)
+        }
         lastFontT = frcT
         lastLabel = text
+        lastTextOutline = txtOL
       }
+      if (lastTextOutline > 0) {
+        g.setColor(main.display.getBackground)
+        g.fill(labelShapeO)
+      }
+      g.setColor(ColorLib.getColor(vi.getTextColor))
       g.fill(labelShape)
 
     } else {
+      g.setColor(ColorLib.getColor(vi.getTextColor))
       val cx = r.getWidth  / 2
       val cy = r.getHeight / 2
       val fm = g.getFontMetrics
