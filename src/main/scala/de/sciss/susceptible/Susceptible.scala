@@ -13,6 +13,7 @@
 
 package de.sciss.susceptible
 
+import java.awt.Font
 import java.io.FileInputStream
 
 import de.sciss.file._
@@ -23,7 +24,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 object Susceptible {
-  final case class Config(textFile: File)
+  final case class Config(textFile: File, fontName: String = "DejaVu Sans Mono", fontSize: Int = 36)
 
   def main(args: Array[String]): Unit = {
     val c = Config(textFile = file("/data/projects/Transpositions/chapter/chapter.md"))
@@ -130,7 +131,25 @@ object Susceptible {
       case _ => Nil
     }
 
-    val paragraphs = sections.map(mkParagraphs)
-    paragraphs
+    // sections -> paragraphs -> words
+    val sectionsP: Seq[Seq[Seq[String]]] = sections.map(mkParagraphs)
+
+    val section1 = sectionsP.head
+
+    val par1 = section1.head
+
+    val fnt = new Font(config.fontName, Font.PLAIN, config.fontSize)
+    val sim = new GlyphSimilarity(fnt)
+
+    val cmp: Iterator[(Double, String, String)] =
+      par1.combinations(2).map { case Seq(word1, word2) =>
+        val Seq(word1A, word2A) = EditTranscript.align(Vec(word1, word2), fill = ' ')
+        val res = sim.compare(word1A, word2A)
+        (res, word1, word2)
+      }
+
+    cmp.toSeq.sortBy(_._1).foreach { case (res, word1, word2) =>
+      println(f"$res%g: $word1, $word2")
+    }
   }
 }
