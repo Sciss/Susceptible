@@ -217,7 +217,8 @@ trait VisualVertexImpl extends VisualNodeImpl {
   def advance: Int = {
     checkFont()
     val fm = Renderer.DEFAULT_GRAPHICS.getFontMetrics(font)
-    fm.charWidth(character)
+    // fm.charWidth(character)
+    fm.stringWidth(word)
   }
 
   def getShape(x: Double, y: Double): Shape = {

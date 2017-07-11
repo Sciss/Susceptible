@@ -19,7 +19,7 @@ import javax.imageio.ImageIO
 import javax.swing.JPanel
 
 import de.sciss.file._
-import de.sciss.kollflitz
+import de.sciss.susceptible.Edge
 import prefuse.action.assignment.ColorAction
 import prefuse.action.{ActionList, RepaintAction}
 import prefuse.activity.Activity
@@ -32,9 +32,8 @@ import prefuse.visual.expression.InGroupPredicate
 import prefuse.visual.{VisualGraph, VisualItem}
 import prefuse.{Constants, Display, Visualization}
 
-import scala.annotation.tailrec
 import scala.collection.breakOut
-import scala.collection.immutable.{IndexedSeq => Vec}
+import scala.collection.immutable.{IndexedSeq => Vec, Seq => ISeq}
 import scala.swing.{Component, Dimension, Graphics2D, Rectangle}
 import scala.util.Random
 
@@ -78,12 +77,13 @@ object Visual {
     res
   }
 
-  class Word(val letters: Vec[VisualVertex], val word: String) {
-    def dispose(): Unit = letters.foreach(_.dispose())
-    lazy val width: Int = letters.map(_.advance).sum   // yes I know this is not precise
-  }
+  /** Returns to reference equality */
+  final class Word(val peer: String)
 
-  class Line(val words: Vec[Word])
+  def Word(peer: String): Word = new Word(peer)
+
+  type WordEdge   = Edge[Word]
+  type WordEdges  = ISeq[WordEdge]
 
   private final class Impl // (map: TMap[S#ID, VisualVertex], val algorithm: Algorithm, cursorPos0: S#Acc)
     extends Visual /* with ComponentHolder[Component] */ {
@@ -98,9 +98,8 @@ object Visual {
 
     private[this] var _runAnim    = false
 
-    private[this] var _text       = ""
-    private[this] var wordMap     = Map.empty[String, List[Word]]
-    private[this] var wordVec     = Vec.empty[Word]
+    private[this] var _text       = ISeq.empty[WordEdge]
+    private[this] var wordVec     = Vec.empty[VisualVertex]
 
     private[this] var forces: Map[String, Force] = _
 
@@ -133,8 +132,8 @@ object Visual {
       res
     }
 
-    def text: String = _text
-    def text_=(value: String): Unit = if (_text != value) setText1(value)
+    def text: WordEdges = _text
+    def text_=(value: WordEdges): Unit = setText1(value)
 
     def setSeed(n: Long): Unit = {
       rnd.setSeed(n)
@@ -148,80 +147,36 @@ object Visual {
       setText1(_text)
     }
 
-    private def setText1(value: String) =
+    private def setText1(value: WordEdges) =
       visDo {
         stopAnimation()
         setText(value)
         startAnimation()
       }
 
-    private def setText(value: String): Unit = {
+    private def setText(value: WordEdges): Unit = {
       _text = value
 
-      import kollflitz.Ops._
-      val x0      = value.replace('\n', ' ').replace("  ", " ")
-      val words   = x0.toVector.groupWith { (a, b) =>
-        a.isLetterOrDigit && b.isLetterOrDigit
-      } .map(_.mkString).toVector
-
       wordVec.foreach(_.dispose())
-      wordMap = Map.empty
       wordVec = Vector.empty
 
-      import kollflitz.Ops._
+      val words = value.flatMap(edge => edge.start :: edge.end :: Nil).distinct
 
-      val lineRef0 = new AnyRef
+      val wordMap: Map[Word, VisualVertex] = words.map { word =>
+        val vv = VisualVertex(this, word = word.peer)
+        wordVec :+= vv
+        word -> vv
+      } (breakOut)
 
-      val ws = words.map { word =>
-        val wordRef = new AnyRef
-        val vs      = word.map { c =>
-          val vv = VisualVertex(this, lineRef = lineRef0, wordRef = wordRef, character = c)
-          vv
-        }
+//      vs.foreachPair { (pred, succ) =>
+//        graph.addEdge(pred.pNode, succ.pNode)
+//      }
 
-        vs.foreachPair { (pred, succ) =>
-          graph.addEdge(pred.pNode, succ.pNode)
-        }
-        val w  = new Word(vs, word)
-        wordMap += word -> (w :: wordMap.getOrElse(word, Nil))
-        wordVec :+= w
-        w
-      }
-
-      @tailrec def mkLines(words: Vec[Word], rem: Vec[Word], width: Int, res: Vec[Line]): Vec[Line] = {
-        def flush(): Line = {
-          words.foreachPair { (pred, succ) =>
-            val n1 = pred.letters.last.pNode
-            val n2 = succ.letters.head.pNode
-            graph.addEdge(n1, n2)
-          }
-          val line = new Line(words)
-          words.foreach(_.letters.foreach(_.lineRef = line))
-          line
-        }
-
-        // note: we allow the last word to exceed the maximum width
-        if (width > _lineWidth && rem.headOption.map(_.letters.size).getOrElse(0) > 1) {
-          val line = flush()
-          mkLines(Vector.empty, rem, 0, res :+ line)
-        } else rem match {
-          case head +: tail =>
-            mkLines(words :+ head, tail, width + head.width, res)
-          case _ =>
-            val line = flush()
-            res :+ line
-        }
-      }
-
-      val lines = mkLines(Vector.empty, ws, 0, Vector.empty)
-
-      lines.foreachPair { (pred, succ) =>
-        val n1 = pred.words.head.letters.head.pNode
-        val n2 = succ.words.head.letters.head.pNode
-        graph.addEdge(n1, n2)
-        //          val n3 = predL.letters.last.pNode
-        //          val n4 = succL.letters.last.pNode
-        //          graph.addEdge(n3, n4)
+      value.foreach { edge =>
+        val vvStart = wordMap(edge.start)
+        val vvEnd   = wordMap(edge.end  )
+        val pEdge   = graph.addEdge(vvStart.pNode, vvEnd.pNode)
+        pEdge.setDouble("weight", edge.weight)
       }
     }
 
@@ -540,7 +495,7 @@ trait Visual {
 
   def component: Component
 
-  var text: String
+  var text: Visual.WordEdges
 
   def animationStep(): Unit
 

@@ -19,10 +19,10 @@ import prefuse.visual.VisualItem
 import scala.swing.Graphics2D
 
 object VisualVertex {
-  def apply(main: Visual, lineRef: AnyRef, wordRef: AnyRef, character: Char): VisualVertex =
-    new Impl(main, lineRef = lineRef, wordRef = wordRef, character = character)
+  def apply(main: Visual, word: String): VisualVertex =
+    new Impl(main, word = word)
 
-  private final class Impl(val main: Visual, var lineRef: AnyRef, val wordRef: AnyRef, val character: Char)
+  private final class Impl(val main: Visual, var word: String)
     extends VisualVertex with VisualVertexImpl {
 
     protected def renderDetail(g: Graphics2D, vi: VisualItem): Unit = {
@@ -31,7 +31,7 @@ object VisualVertex {
 
     protected def boundsResized(): Unit = ()
 
-    def name: String = character.toString
+    def name: String = word
 
     private var _pNode: PNode = _
 
@@ -54,12 +54,12 @@ object VisualVertex {
   }
 }
 sealed trait VisualVertex extends VisualNode {
-  def character: Char
+  def word: String
 
   def advance: Int
 
   def pNode: PNode
 
-  def wordRef: AnyRef
-  var lineRef: AnyRef
+//  def wordRef: AnyRef
+//  var lineRef: AnyRef
 }
