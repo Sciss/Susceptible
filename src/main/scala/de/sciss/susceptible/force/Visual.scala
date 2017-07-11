@@ -14,7 +14,7 @@
 package de.sciss.susceptible.force
 
 import java.awt.image.BufferedImage
-import java.awt.{Color, Font, Graphics, LayoutManager, RenderingHints}
+import java.awt.{Color, Font, LayoutManager, RenderingHints}
 import javax.imageio.ImageIO
 import javax.swing.JPanel
 
@@ -233,10 +233,10 @@ object Visual {
 //        private var img2: BufferedImage = _
 //        private var img3: BufferedImage = _
 
-        override def paintBufferToScreen(g: Graphics): Unit = this.synchronized {
-          val img = m_offscreen
-          g.drawImage(img, 0, 0, getWidth, getHeight, null)
-        }
+//        override def paintBufferToScreen(g: Graphics): Unit = this.synchronized {
+//          val img = m_offscreen
+//          g.drawImage(img, 0, 0, getWidth, getHeight, null)
+//        }
       }
 
       _g     = new PGraph(true)
@@ -471,16 +471,25 @@ object Visual {
       // val scale = width.toDouble / VIDEO_WIDTH_SQR
       // val p0 = new Point(0, 0)
       try {
-        _dsp.damageReport() // force complete redrawing
-        // _dsp.zoom(p0, scale)
-        // actionAutoZoom.karlHeinz = scale
-        val dw = _dsp.getWidth
-        val dh = _dsp.getHeight
-        val sx = width .toDouble / dw
-        val sy = height.toDouble / dh
-        g.scale(sx, sy)
-        // _dsp.paintDisplay(g, new Dimension(dh, dw))
-        _dsp.paintComponent(g)
+//        _dsp.damageReport() // force complete redrawing
+//        // _dsp.zoom(p0, scale)
+//        // actionAutoZoom.karlHeinz = scale
+//        val dw = _dsp.getWidth
+//        val dh = _dsp.getHeight
+//        val sx = width .toDouble / dw
+//        val sy = height.toDouble / dh
+//        g.scale(sx, sy)
+        val oldWidth    = _dsp.bufWidth
+        val oldHeight   = _dsp.bufHeight
+        try {
+          _dsp.bufWidth   = width
+          _dsp.bufHeight  = height
+          // _dsp.paintDisplay(g, new Dimension(dh, dw))
+          _dsp.paintComponent(g)
+        } finally {
+          _dsp.bufWidth   = oldWidth
+          _dsp.bufHeight  = oldHeight
+        }
 
         // _dsp.zoom(p0, 1.0/scale)
         // actionAutoZoom.karlHeinz = 1.0

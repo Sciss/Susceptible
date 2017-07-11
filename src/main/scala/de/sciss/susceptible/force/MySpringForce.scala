@@ -15,7 +15,7 @@ package de.sciss.susceptible.force
 
 import java.util.Random
 
-import prefuse.util.force.{ForceItem, Spring, SpringForce}
+import prefuse.util.force.{Spring, SpringForce}
 
 object MySpringForce {
   private final val pi    = math.Pi.toFloat
@@ -80,7 +80,8 @@ class MySpringForce extends SpringForce {
 //    item2.force(1) += -coeff * dy
 //  }
 //
-  private def foo(s: Spring): Unit = {
+
+  def foo(s: Spring): Unit = {
     val isHorizontal = s.coeff == 0f || s.coeff == 1f
 
     val item1   = s.item1

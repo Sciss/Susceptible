@@ -15,31 +15,53 @@ package de.sciss.susceptible
 
 import java.awt.Font
 import java.io.FileInputStream
-import javax.swing.SpinnerNumberModel
+import javax.swing.{KeyStroke, SpinnerNumberModel}
 
+import de.sciss.desktop.{FileDialog, OptionPane}
 import de.sciss.file._
 import de.sciss.kollflitz.Vec
+import de.sciss.processor.Processor
+import de.sciss.processor.impl.ProcessorImpl
 import de.sciss.susceptible.force.Visual
 import de.sciss.swingplus.Spinner
 import org.pegdown.{PegDownProcessor, ast}
 import prefuse.util.ui.JForcePanel
+import scopt.OptionParser
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.{breakOut, mutable}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Future, blocking}
 import scala.swing.Swing._
 import scala.swing.event.{ButtonClicked, ValueChanged}
-import scala.swing.{BorderPanel, BoxPanel, Component, FlowPanel, Frame, Label, Orientation, Swing, ToggleButton}
+import scala.swing.{Action, BorderPanel, BoxPanel, Button, Component, FlowPanel, Frame, Label, Menu, MenuBar, MenuItem, Orientation, ProgressBar, Swing, ToggleButton}
+import scala.util.Failure
 
 object Susceptible {
   /**
     * @param textFile   a markdown file containing the text to render
     */
-  final case class Config(textFile: File, fontName: String = "DejaVu Sans Mono", fontSize: Int = 36)
+  final case class Config(textFile    : File    = file("chapter.md"),
+                          fontName    : String  = "DejaVu Sans Mono",
+                          fontSize    : Int     = 36,
+                          imageWidth  : Int     = 4096,
+                          imageHeight : Int     = 4096,
+                          section     : Int     = 0
+                         )
 
   def main(args: Array[String]): Unit = {
-    val c = Config(textFile = file("/data/projects/Transpositions/chapter/chapter.md"))
-    run(c)
+    val p = new OptionParser[Config]("Susceptible") {
+      opt[File]('i', "text-input") required() text "input text file (markdown)" action { case (v, c) => c.copy(textFile = v) }
+      opt[String]("font-name")      action { case (v, c) => c.copy(fontName     = v) }
+      opt[Int]("font-size" )        action { case (v, c) => c.copy(fontSize     = v) }
+      opt[Int]('w', "image-width")  action { case (v, c) => c.copy(imageWidth   = v) }
+      opt[Int]('h', "image-height") action { case (v, c) => c.copy(imageHeight  = v) }
+      opt[Int]('s', "section") text "section within the markdown file (counting from zero)" action { case (v, c) => c.copy(section = v) }
+    }
+    p.parse(args, Config()).fold(sys.exit(1)) { config =>
+      run(config)
+    }
   }
 
   def readAllText(f: File): String = {
@@ -145,12 +167,12 @@ object Susceptible {
     // sections -> paragraphs -> words
     val sectionsP: Seq[Seq[Seq[String]]] = sections.map(mkParagraphs)
 
-    val section1 = sectionsP.head
+    val section = sectionsP(config.section)
 
     val fnt = new Font(config.fontName, Font.PLAIN, config.fontSize)
     val gs  = new GlyphSimilarity(fnt)
 
-    val edges: Visual.WordEdges = section1.flatMap { par =>
+    val edges: Visual.WordEdges = section.flatMap { par =>
       val cmpIt: Iterator[(Double, String, String)] =
         par.combinations(2).map { case Seq(word1, word2) =>
           val Seq(word1A, word2A) = EditTranscript.align(Vec(word1, word2), fill = ' ')
@@ -170,7 +192,7 @@ object Susceptible {
     gs.dispose()
 
     Swing.onEDT {
-      mkFrame(edges)
+      mkFrame(config, edges)
     }
   }
 
@@ -184,7 +206,7 @@ object Susceptible {
     edgesW
   }
 
-  def mkFrame(edges: Visual.WordEdges): Unit = {
+  def mkFrame(config: Config, edges: Visual.WordEdges): Unit = {
     val v = Visual()
     // v.display.setDoubleBuffered(true)
     v.displaySize = (800, 800)
@@ -218,8 +240,15 @@ object Susceptible {
       }
     }
 
+    val mWidth = new SpinnerNumberModel(config.imageWidth, 16, 16384, 1)
+    val ggWidth: Spinner = new Spinner(mWidth)
+
+    val mHeight = new SpinnerNumberModel(config.imageHeight, 16, 16384, 1)
+    val ggHeight: Spinner = new Spinner(mHeight)
+
     lazy val pBottom: Component = new BoxPanel(Orientation.Vertical) {
-      contents += new FlowPanel(ggAutoZoom, ggRunAnim, new Label("Outline:"), ggOutline)
+      contents += new FlowPanel(ggAutoZoom, ggRunAnim, new Label("Outline:"), ggOutline,
+        new Label("Width:"), ggWidth, new Label("Height:"), ggHeight)
     }
     lazy val pRight: BoxPanel = new BoxPanel(Orientation.Vertical) {
       contents += VStrut(16)  // will be replaced
@@ -247,6 +276,33 @@ object Susceptible {
     //    split.dividerLocation     = 800
     //    split.resizeWeight        = 1.0
 
+    val mb = new MenuBar {
+      contents += new Menu("File") {
+        contents += new MenuItem(new Action("Export Image...") {
+          accelerator = Some(KeyStroke.getKeyStroke("ctrl S"))
+          def apply(): Unit = {
+            FileDialog.save(init = Some(config.textFile.replaceExt("png"))).show(None).foreach { f =>
+              val pFull = new RenderImage(v,
+                width   = mWidth .getNumber.intValue,
+                height  = mHeight.getNumber.intValue,
+                fOut = f.replaceExt("png"))
+              pFull.start()
+              val futTail = pFull
+//              val futTail = pFull.map { _ =>
+//                val json = Situation.format.writes(sit).toString()
+//                blocking {
+//                  val jsonOut = new FileOutputStream(f.replaceExt("json"))
+//                  jsonOut.write(json.getBytes("UTF-8"))
+//                  jsonOut.close()
+//                }
+//              }
+              mkProgressDialog("Exporting...", pFull, futTail)
+            }
+          }
+        })
+      }
+    }
+
     new Frame {
       title     = "Text"
       contents  = new BorderPanel {
@@ -254,7 +310,7 @@ object Susceptible {
         // add(pBottom , BorderPanel.Position.South)
         add(pRight  , BorderPanel.Position.East)
       }
-//      menuBar = mb
+      menuBar = mb
 //      resizable = false
       pack().centerOnScreen()
       // size      = (640, 480)
@@ -276,5 +332,40 @@ object Susceptible {
 
     v.display.panAbs(400, 400)
     v.runAnimation = true
+  }
+
+  private final class RenderImage(v: Visual, width: Int, height: Int, fOut: File)
+    extends ProcessorImpl[Unit, Processor[Unit]] with Processor[Unit] {
+
+    protected def body(): Unit = blocking {
+//      if (!fOut.exists()) {
+        v.saveFrameAsPNG(fOut, width = width, height = height)
+//      }
+      progress = 1.0
+    }
+  }
+
+  def mkProgressDialog(title: String, p: Processor[Any], tail: Future[Any]): Unit = {
+    val ggProg  = new ProgressBar
+    val ggAbort = new Button("Abort")
+    val opt     = OptionPane(message = ggProg, messageType = OptionPane.Message.Plain, entries = Seq(ggAbort))
+
+    val optPeer = opt.peer
+    val dlg = optPeer.createDialog(title)
+    ggAbort.listenTo(ggAbort)
+    ggAbort.reactions += {
+      case ButtonClicked(_) =>
+        p.abort()
+    }
+    tail.onComplete(_ => onEDT(dlg.dispose()))
+    tail.onComplete {
+      case Failure(Processor.Aborted()) =>
+      case Failure(ex) => ex.printStackTrace()
+      case _ =>
+    }
+    p.addListener {
+      case prog @ Processor.Progress(_, _) => onEDT(ggProg.value = prog.toInt)
+    }
+    dlg.setVisible(true)
   }
 }

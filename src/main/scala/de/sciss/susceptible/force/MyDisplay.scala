@@ -29,10 +29,10 @@ class MyDisplay(visualization: Visualization, predicate: Predicate)
     * Paints the offscreen buffer to the provided graphics context.
     * @param g the Graphics context to paint to
     */
-  override protected def paintBufferToScreen(g: Graphics): Unit = this.synchronized {
-    // g.drawImage(m_offscreen, 0, 0, null)
-    g.drawImage(m_offscreen, 0, 0, getWidth, getHeight, null)
-  }
+//  override protected def paintBufferToScreen(g: Graphics): Unit = this.synchronized {
+//    // g.drawImage(m_offscreen, 0, 0, null)
+//    g.drawImage(m_offscreen, 0, 0, getWidth, getHeight, null)
+//  }
 
   private[this] var mark            = -1L
   private[this] val sampleInterval  = 10
