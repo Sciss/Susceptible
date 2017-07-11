@@ -64,6 +64,7 @@ object Visual {
 
   final         val GROUP_GRAPH   = "graph"
   final         val COL_MUTA      = "muta"
+  final         val COL_WEIGHT    = "weight"
 
   private final val GROUP_NODES   = "graph.nodes"
   private final val GROUP_EDGES   = "graph.edges"
@@ -176,7 +177,7 @@ object Visual {
         val vvStart = wordMap(edge.start)
         val vvEnd   = wordMap(edge.end  )
         val pEdge   = graph.addEdge(vvStart.pNode, vvEnd.pNode)
-        pEdge.setDouble("weight", edge.weight)
+        pEdge.setDouble(COL_WEIGHT, edge.weight)
       }
     }
 
@@ -235,6 +236,7 @@ object Visual {
       _g     = new PGraph(true)
       _vg    = _vis.addGraph(GROUP_GRAPH, _g)
       _vg.addColumn(COL_MUTA, classOf[AnyRef])
+      _g.addColumn(COL_WEIGHT, classOf[Double])
 
       val procRenderer = new BoxRenderer(this) // new NuagesShapeRenderer(50)
       val edgeRenderer = new MyEdgeRenderer
@@ -290,16 +292,29 @@ object Visual {
       //        ("MySpringForce", "Limit"              ) -> 300.0f
       //      )
 
+//      val forceMap = Map(
+//        ("NBodyForce" , "GravitationalConstant") -> 0f, // -0.01f,
+//        ("NBodyForce" , "Distance"             ) -> -1.0f,
+//        ("NBodyForce" , "BarnesHutTheta"       ) -> 0.4f,
+//        ("DragForce"  , "DragCoefficient"      ) -> 0.015f,
+//        ("MySpringForce", "SpringCoefficient"  ) -> 1.0e-4f,
+//        ("MySpringForce", "VSpringCoefficient" ) -> 1.0e-4f,
+//        // ("MySpringForce", "DefaultSpringLength") -> 0.1f, // 150.0f,
+//        ("MySpringForce", "HTorque"            ) -> 2.0e-4f,
+//        ("MySpringForce", "VTorque"            ) -> 2.0e-4f,
+//        ("MySpringForce", "Limit"              ) -> 300.0f
+//      )
+
       val forceMap = Map(
-        ("NBodyForce" , "GravitationalConstant") -> 0f, // -0.01f,
+        ("NBodyForce" , "GravitationalConstant") -> -0.01f,
         ("NBodyForce" , "Distance"             ) -> -1.0f,
         ("NBodyForce" , "BarnesHutTheta"       ) -> 0.4f,
         ("DragForce"  , "DragCoefficient"      ) -> 0.015f,
         ("MySpringForce", "SpringCoefficient"  ) -> 1.0e-4f,
         ("MySpringForce", "VSpringCoefficient" ) -> 1.0e-4f,
         // ("MySpringForce", "DefaultSpringLength") -> 0.1f, // 150.0f,
-        ("MySpringForce", "HTorque"            ) -> 2.0e-4f,
-        ("MySpringForce", "VTorque"            ) -> 2.0e-4f,
+        ("MySpringForce", "HTorque"            ) -> 0f,
+        ("MySpringForce", "VTorque"            ) -> 0f,
         ("MySpringForce", "Limit"              ) -> 300.0f
       )
 

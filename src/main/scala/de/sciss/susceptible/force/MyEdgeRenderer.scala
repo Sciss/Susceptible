@@ -31,7 +31,7 @@ class MyEdgeRenderer
   //    dot.setFrame(-width * 0.5f, -height, width, height)
   //  }
 
-  override def drawShape(g: Graphics2D, item: VisualItem, shape: Shape): Unit = ()
+//  override def drawShape(g: Graphics2D, item: VisualItem, shape: Shape): Unit = ()
 
   //  override def getRawShape(item: VisualItem): Shape = {
   //    val edge  = item.asInstanceOf[EdgeItem]

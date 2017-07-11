@@ -18,10 +18,16 @@ import java.io.FileInputStream
 
 import de.sciss.file._
 import de.sciss.kollflitz.Vec
+import de.sciss.susceptible.force.Visual
 import org.pegdown.{PegDownProcessor, ast}
+import prefuse.util.ui.JForcePanel
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.mutable
+import scala.swing.Swing._
+import scala.swing.event.ButtonClicked
+import scala.swing.{BorderPanel, BoxPanel, Component, FlowPanel, Frame, Orientation, Swing, ToggleButton}
 
 object Susceptible {
   /**
@@ -162,7 +168,103 @@ object Susceptible {
       Edge(start = word1, end = word2, weight = 1.0 - sim)
     }
 
-    val mst = MSTKruskal[String, Edge[String]](edges)
-    mst.foreach(println)
+    val mst: List[Edge[String]] = MSTKruskal[String, Edge[String]](edges)
+//    mst.foreach(println)
+
+    Swing.onEDT {
+      mkFrame(mst)
+    }
+  }
+
+  def mkFrame(edges: List[Edge[String]]): Unit = {
+    val v = Visual()
+    // v.display.setDoubleBuffered(true)
+    v.displaySize = (640, 640)
+
+    val wordMap = mutable.Map.empty[String, Visual.Word]
+    val edgesW = edges.map { edge =>
+      val w1 = wordMap.getOrElseUpdate(edge.start, Visual.Word(edge.start))
+      val w2 = wordMap.getOrElseUpdate(edge.end  , Visual.Word(edge.end  ))
+      Edge(start = w1, end = w2, weight = edge.weight)
+    }
+
+    v.text = edgesW
+
+    lazy val ggAutoZoom: ToggleButton = new ToggleButton("Zoom") {
+      selected = true
+      listenTo(this)
+      reactions += {
+        case ButtonClicked(_) =>
+          v.autoZoom = selected
+      }
+    }
+
+    lazy val ggRunAnim: ToggleButton = new ToggleButton("Anim") {
+      listenTo(this)
+      reactions += {
+        case ButtonClicked(_) =>
+          v.runAnimation = selected
+      }
+    }
+
+    lazy val pBottom: Component = new BoxPanel(Orientation.Vertical) {
+      contents += new FlowPanel(ggAutoZoom, ggRunAnim)
+    }
+    lazy val pRight: BoxPanel = new BoxPanel(Orientation.Vertical) {
+      contents += VStrut(16)  // will be replaced
+//      contents += cfgView.component
+//      contents += ggText
+    }
+
+    // stupidly, it doesn't listen for model changes
+    def mkForcePanel(): Unit = {
+      val fSim    = v.forceSimulator
+      val fPanel  = new JForcePanel(fSim)
+      fPanel.setBackground(null)
+      pRight.contents.update(0, Component.wrap(fPanel))
+    }
+
+    mkForcePanel()
+
+    val split = new BorderPanel {
+      add(v.component, BorderPanel.Position.North )
+//      add(pSnapshots , BorderPanel.Position.Center)
+      // add(Swing.VGlue, BorderPanel.Position.Center)
+      add(pBottom    , BorderPanel.Position.South )
+    }
+
+    //    split.oneTouchExpandable  = true
+    //    split.continuousLayout    = false
+    //    split.dividerLocation     = 800
+    //    split.resizeWeight        = 1.0
+
+    new Frame {
+      title     = "Text"
+      contents  = new BorderPanel {
+        add(split   , BorderPanel.Position.Center)
+        // add(pBottom , BorderPanel.Position.South)
+        add(pRight  , BorderPanel.Position.East)
+      }
+//      menuBar = mb
+//      resizable = false
+      pack().centerOnScreen()
+      // size      = (640, 480)
+
+      // v.display.panTo((-136 + 20, -470 + 20))   // XXX WAT -- where the heck do these values come from?
+      //      v.display.panTo((-100, 100))
+      //      v.display.zoomAbs((0, 0), 1.3333)
+
+      open()
+
+      override def closeOperation(): Unit = {
+        try {
+          // v.algorithm.system.close()
+        } finally {
+          sys.exit(0)
+        }
+      }
+    }
+
+    v.display.panAbs(320, 320)
   }
 }
