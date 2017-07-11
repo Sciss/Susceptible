@@ -6,17 +6,18 @@ import scala.collection.breakOut
 final case class Node[A](parent: Option[A], treeSize: Int)
 
 // this is based on code by Rafael O. Torres, which
-// however had several mistakes.
+// however was wrong.
+//
+// Original code, licensed under MIT:
+// https://github.com/rators/PriorityMap/blob/master/src/main/scala/utils/algorithm/kruskal/UnionFind.scala
+
 object UnionFind {
-
-  def apply[A](nodes: Vector[Node[A]], allLinks: Map[A, Int]): UnionFind[A] = new UnionFind(nodes, allLinks)
-
   def apply[A: Ordering, E <: EdgeLike[A]](edges: Iterable[E]): UnionFind[A] = {
     val indexMap  = vertexIndexMap[A, E](edges)
     val size      = indexMap.size
     val nodes     = Vector.fill(size)(Node[A](None, 1))
 
-    UnionFind[A](nodes, indexMap)
+    new UnionFind[A](nodes, indexMap)
   }
 
   def vertexIndexMap[A, E <: EdgeLike[A]](edges: Iterable[E])(implicit ord: Ordering[A]): Map[A, Int] = {
