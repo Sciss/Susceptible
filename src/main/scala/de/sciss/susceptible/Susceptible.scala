@@ -24,6 +24,9 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 object Susceptible {
+  /**
+    * @param textFile   a markdown file containing the text to render
+    */
   final case class Config(textFile: File, fontName: String = "DejaVu Sans Mono", fontSize: Int = 36)
 
   def main(args: Array[String]): Unit = {
@@ -139,17 +142,27 @@ object Susceptible {
     val par1 = section1.head
 
     val fnt = new Font(config.fontName, Font.PLAIN, config.fontSize)
-    val sim = new GlyphSimilarity(fnt)
+    val gs  = new GlyphSimilarity(fnt)
 
-    val cmp: Iterator[(Double, String, String)] =
+    val cmpIt: Iterator[(Double, String, String)] =
       par1.combinations(2).map { case Seq(word1, word2) =>
         val Seq(word1A, word2A) = EditTranscript.align(Vec(word1, word2), fill = ' ')
-        val res = sim.compare(word1A, word2A)
-        (res, word1, word2)
+        val sim = gs.compare(word1A, word2A)
+        (sim, word1, word2)
       }
 
-    cmp.toSeq.sortBy(_._1).foreach { case (res, word1, word2) =>
-      println(f"$res%g: $word1, $word2")
+    val cmp = cmpIt.toList
+    gs.dispose()
+
+//    cmp.sortBy(_._1).foreach { case (sim, word1, word2) =>
+//      println(f"$sim%g: $word1, $word2")
+//    }
+
+    val edges = cmp.map { case (sim, word1, word2) =>
+      Edge(start = word1, end = word2, weight = 1.0 - sim)
     }
+
+    val mst = MSTKruskal[String, Edge[String]](edges)
+    mst.foreach(println)
   }
 }

@@ -1,6 +1,18 @@
+/*
+ *  GlyphSimilarity.scala
+ *  (Susceptible)
+ *
+ *  Copyright (c) 2017 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is published under the GNU General Public License v3+
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.susceptible
 
-import java.awt.geom.AffineTransform
 import java.awt.image.BufferedImage
 import java.awt.{Color, Font, Graphics2D}
 
@@ -30,8 +42,6 @@ final class GlyphSimilarity(font: Font) {
     _g
   }
 
-  private[this] val at = new AffineTransform
-
   def compare(a: String, b: String): Double = synchronized {
     val g       = graphics()
     val frc     = g.getFontRenderContext
@@ -55,10 +65,24 @@ final class GlyphSimilarity(font: Font) {
     g2.setColor(Color.black)
     g2.fillRect(0, 0, width, height * 2)
     g2.setColor(Color.white)
-    at.setToTranslation(-minX, -minY)
-    g2.draw(at.createTransformedShape(outA))
-    at.setToTranslation(-minX, -minY + height)
-    g2.draw(at.createTransformedShape(outB))
+    val atOrig    = g2.getTransform
+    val clipOrig  = g2.getClip
+    // note: despite getPixelBounds promising to give us
+    // the bounds that obeyed, the actual string drawing
+    // shoots past this. in order to get a 100% correlation
+    // between two equal words, we thus clip the drawing area.
+
+    //    g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE)
+    g2.clipRect(0, 0, width, height)
+    g2.translate(-minX, -minY)
+    g2.draw(outA)
+    g2.setTransform(atOrig)
+    g2.setClip(clipOrig)
+    g2.clipRect(0, height, width, height)
+    g2.translate(-minX, -minY + height)
+    g2.draw(outB)
+    g2.setTransform(atOrig)
+    g2.setClip(clipOrig)
 
     var x = 0
     var countA = 0
